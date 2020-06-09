@@ -43,7 +43,7 @@ fn update_game(g: AsyncGame) -> impl Filter<Extract = impl warp::Reply, Error = 
 pub async fn serve() {
     let game = Arc::new(Mutex::new(engine::Game::new()));
 
-    warp::serve(get_game(game.clone()).or(update_game(game.clone())))
+    warp::serve(get_game(game.clone()).or(update_game(game.clone())).with(warp::cors().allow_origin("http://localhost:8000").allow_methods(vec!["GET", "PUT"])))
         .run(([127, 0, 0, 1], 3000))
         .await;
 }
