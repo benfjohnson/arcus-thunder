@@ -6,6 +6,7 @@ pub enum Player {
     White,
 }
 
+#[derive(Serialize, Deserialize)]
 pub enum MoveDirection {
     Up,
     Down,
@@ -100,16 +101,16 @@ impl Game {
             self.world_map[x][y] = None;
             match direction {
                 MoveDirection::Down => {
-                    self.world_map[x][y - 1] = Some(p);
+                    self.world_map[x + 1][y] = Some(p);
                 },
                 MoveDirection::Up => {
-                    self.world_map[x][y + 1] = Some(p);
-                },
-                MoveDirection::Left => {
                     self.world_map[x - 1][y] = Some(p);
                 },
+                MoveDirection::Left => {
+                    self.world_map[x][y - 1] = Some(p);
+                },
                 MoveDirection::Right => {
-                    self.world_map[x + 1][y] = Some(p);
+                    self.world_map[x][y + 1] = Some(p);
                 },
             }
         }

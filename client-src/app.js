@@ -28,14 +28,15 @@ const view = (model, sideEffects) => html`
     <div>
         ${model.worldMap.map(row => {
             return html`
-                ${row.map(pos => html`<span>${pos}</span>`)}
+                ${row.map(pos => html`<span>${pos || '====='}</span>`)}
                 <br/>
             `;
         })}
-        <button @click=${() => sideEffects.move(dispatch)('black', 'UP')}>Click me?!</button>
     </div>
 `;
 
 const dispatch = initDispatch(model, update, view, render);
 
 render(view(model, sideEffects), document.querySelector('#app'));
+
+sideEffects.listenForArrowKeys(dispatch)();

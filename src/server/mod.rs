@@ -1,11 +1,18 @@
 use warp::Filter;
 use warp::http::StatusCode;
-use super::engine;
+use super::engine::{Player, MoveDirection, Game};
 use tokio::sync::Mutex;
 use std::convert::Infallible;
 use std::sync::Arc;
+use serde::{Serialize, Deserialize};
 
-pub type AsyncGame = Arc<Mutex<engine::Game>>;
+pub type AsyncGame = Arc<Mutex<Game>>;
+
+#[derive(Deserialize, Serialize)]
+struct PutGameRequest {
+    player: Player,
+    direction: MoveDirection,
+}
 
 async fn wrap_unlocked_game(g: AsyncGame) -> Result<impl warp::Reply, Infallible> {
     let game = g.lock().await;
@@ -13,10 +20,10 @@ async fn wrap_unlocked_game(g: AsyncGame) -> Result<impl warp::Reply, Infallible
     Ok(warp::reply::json(&game))
 }
 
-async fn wrap_updated_game(g: AsyncGame) -> Result<impl warp::Reply, Infallible> {
+async fn wrap_updated_game(req_body: PutGameRequest, g: AsyncGame) -> Result<impl warp::Reply, Infallible> {
     let mut game = g.lock().await;
 
-    game.player_move(engine::Player::Black, engine::MoveDirection::Down);
+    game.player_move(req_body.player, req_body.direction);
 
     Ok(StatusCode::OK)
 }
@@ -35,15 +42,17 @@ fn get_game(g: AsyncGame) -> impl Filter<Extract = impl warp::Reply, Error = war
 fn update_game(g: AsyncGame) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     warp::path("game")
         .and(warp::put())
+        .and(warp::body::content_length_limit(1024 * 16))
+        .and(warp::body::json())
         .and(with_game(g))
         .and_then(wrap_updated_game)
 }
 
 #[tokio::main]
 pub async fn serve() {
-    let game = Arc::new(Mutex::new(engine::Game::new()));
+    let game = Arc::new(Mutex::new(Game::new()));
 
-    warp::serve(get_game(game.clone()).or(update_game(game.clone())).with(warp::cors().allow_origin("http://localhost:8000").allow_methods(vec!["GET", "PUT"])))
+    warp::serve(get_game(game.clone()).or(update_game(game.clone())).with(warp::cors().allow_origin("http://localhost:8000").allow_header("Content-Type").allow_methods(vec!["GET", "PUT", "OPTIONS"])))
         .run(([127, 0, 0, 1], 3000))
         .await;
 }
