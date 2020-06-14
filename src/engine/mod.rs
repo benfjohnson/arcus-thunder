@@ -6,7 +6,7 @@ pub enum Player {
     White,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum MoveDirection {
     Up,
     Down,
@@ -16,20 +16,21 @@ pub enum MoveDirection {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Game {
+    // Map is such that (0, 0) denotes the top left corner, x and y grow to the right and bottom, respectively
     world_map: [ [Option<Player>; 8]; 8],
 }
 
 impl Game {
     pub fn new() -> Game {
         let game: Game = Game { world_map: [
-            [None, None, None, None, None, None, None, None],
-            [None, None, Some(Player::Black), None, None, None, None, None],
-            [None, None, None, None, None, None, None, None],
+            [Some(Player::Black), None, None, None, None, None, None, None],
             [None, None, None, None, None, None, None, None],
             [None, None, None, None, None, None, None, None],
             [None, None, None, None, None, None, None, None],
-            [None, None, None, None, None, Some(Player::White), None, None],
             [None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, Some(Player::White)],
         ] };
         game
     }
@@ -61,7 +62,7 @@ impl Game {
 
             match player_col_idx {
                 None => {},
-                Some(idx) => { return_coords = (i, idx) }
+                Some(idx) => { return_coords = (idx, i) }
             };
         }
 
@@ -75,11 +76,11 @@ impl Game {
         const UPPER_WORLD_BOUND: usize = 7;
 
         if let MoveDirection::Down = d {
-            if y == LOWER_WORLD_BOUND { return false };
+            if y == UPPER_WORLD_BOUND { return false };
         }
 
         if let MoveDirection::Up = d {
-            if y == UPPER_WORLD_BOUND { return false };
+            if y == LOWER_WORLD_BOUND { return false };
         }
 
         if let MoveDirection::Left = d {
@@ -98,19 +99,19 @@ impl Game {
             return;
         } else {
             let (x, y) = self.find_player(&p);
-            self.world_map[x][y] = None;
+            self.world_map[y][x] = None;
             match direction {
                 MoveDirection::Down => {
-                    self.world_map[x + 1][y] = Some(p);
+                    self.world_map[y + 1][x] = Some(p);
                 },
                 MoveDirection::Up => {
-                    self.world_map[x - 1][y] = Some(p);
+                    self.world_map[y - 1][x] = Some(p);
                 },
                 MoveDirection::Left => {
-                    self.world_map[x][y - 1] = Some(p);
+                    self.world_map[y][x - 1] = Some(p);
                 },
                 MoveDirection::Right => {
-                    self.world_map[x][y + 1] = Some(p);
+                    self.world_map[y][x + 1] = Some(p);
                 },
             }
         }

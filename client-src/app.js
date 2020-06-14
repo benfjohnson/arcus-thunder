@@ -2,16 +2,16 @@ import { html, render } from 'https://unpkg.com/lit-html@1.2.1/lit-html.js';
 import { initDispatch, sideEffects } from './side-effects.js';
 
 const worldMap = [
-    [null, null, null, null, null, null, null, null],
-    [null, null, null, 'white', null, null, null, null],
-    [null, null, null, null, null, null, null, null],
+    ['Black', null, null, null, null, null, null, null],
     [null, null, null, null, null, null, null, null],
     [null, null, null, null, null, null, null, null],
     [null, null, null, null, null, null, null, null],
     [null, null, null, null, null, null, null, null],
+    [null, null, null, null, null, null, null, null],
+    [null, null, null, null, null, null, null, 'White'],
 ];
 
-const player = 'white';
+const player = 'Black';
 
 let model = { worldMap, player };
 
