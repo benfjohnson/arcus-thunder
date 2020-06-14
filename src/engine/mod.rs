@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum Player {
     Black,
     White,
@@ -115,5 +115,37 @@ impl Game {
                 },
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_move_is_valid() {
+        let test_g = Game::new();
+
+        assert_eq!(test_g.world_map[0][0], Some(Player::Black));
+        // Player starting at 0, 0 cannot move left or up, but can move right or down
+        assert_eq!(test_g.move_is_valid(&Player::Black, &MoveDirection::Left), false);
+        assert_eq!(test_g.move_is_valid(&Player::Black, &MoveDirection::Up), false);
+        assert_eq!(test_g.move_is_valid(&Player::Black, &MoveDirection::Down), true);
+        assert_eq!(test_g.move_is_valid(&Player::Black, &MoveDirection::Right), true);
+
+    }
+
+    #[test]
+    fn test_player_move() {
+        let mut test_g = Game::new();
+
+        // White starts at (8, 8), with empty space to his or her left at (7, 8)
+        assert_eq!(test_g.world_map[7][7], Some(Player::White));
+        assert_eq!(test_g.world_map[7][6], None);
+
+        test_g.player_move(Player::White, MoveDirection::Left);
+
+        assert_eq!(test_g.world_map[7][7], None);
+        assert_eq!(test_g.world_map[7][6], Some(Player::White));
     }
 }
