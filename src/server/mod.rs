@@ -52,7 +52,7 @@ fn update_game(g: AsyncGame) -> impl Filter<Extract = impl warp::Reply, Error = 
 pub async fn serve() {
     let game = Arc::new(Mutex::new(Game::new()));
 
-    warp::serve(get_game(game.clone()).or(update_game(game.clone())).with(warp::cors().allow_origin("http://localhost:8000").allow_header("Content-Type").allow_methods(vec!["GET", "PUT", "OPTIONS"])))
+    warp::serve(get_game(game.clone()).or(update_game(game.clone())).with(warp::cors().allow_origin("http://localhost:8080").allow_header("Content-Type").allow_methods(vec!["GET", "PUT", "OPTIONS"])))
         .run(([127, 0, 0, 1], 3000))
         .await;
 }
