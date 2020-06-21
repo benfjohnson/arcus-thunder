@@ -30,7 +30,7 @@ impl Game {
             [None, None, None, None, None, None, None, None],
             [None, None, None, None, None, None, None, None],
             [None, None, None, None, None, None, None, None],
-            [None, None, None, None, None, None, None, Some(Player::White)],
+            [None, None, None, None, None, None, None, Some(Player::Black)],
         ] };
         game
     }

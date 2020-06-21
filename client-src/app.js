@@ -1,24 +1,20 @@
 import { html, render } from 'https://unpkg.com/lit-html@1.2.1/lit-html.js';
 import { initDispatch, sideEffects } from './side-effects.js';
 
-const worldMap = [
-    ['Black', null, null, null, null, null, null, null],
-    [null, null, null, null, null, null, null, null],
-    [null, null, null, null, null, null, null, null],
-    [null, null, null, null, null, null, null, null],
-    [null, null, null, null, null, null, null, null],
-    [null, null, null, null, null, null, null, null],
-    [null, null, null, null, null, null, null, 'White'],
-];
+const worldMap = [];
 
-const player = 'Black';
+const player = 'White';
 
 let model = { worldMap, player };
 
 const update = (model, action) => {
     switch(action.type) {
         case 'GET_GAME':
-            return Object.assign({}, model, { worldMap: action.worldMap });
+            model.worldMap = action.worldMap;
+            return model;
+        case 'GET_PLAYER_COLOR':
+            model.player = action.color;
+            return model;
         default:
             return model;
     }
@@ -39,4 +35,7 @@ const dispatch = initDispatch(model, update, view, render);
 
 render(view(model, sideEffects), document.querySelector('#app'));
 
-sideEffects.listenForArrowKeys(dispatch)();
+// side effects to trigger on startup
+sideEffects.getGame(dispatch)();
+sideEffects.selectPlayerFromQuerystring(dispatch)(window);
+sideEffects.listenForArrowKeys(dispatch)(model.player);
