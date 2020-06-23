@@ -36,9 +36,10 @@ const dispatch = initDispatch(model, update, view, render);
 render(view(model, sideEffects), document.querySelector('#app'));
 
 const ws = new WebSocket('ws://localhost:3000/connect');
+
 ws.onopen = () => console.log('opened a socket!');
+ws.onmessage = (msg) => dispatch({ type: 'GET_GAME', worldMap: JSON.parse(msg.data).world_map });
 
 // side effects to trigger on startup
-sideEffects.getGame(dispatch)();
 sideEffects.selectPlayerFromQuerystring(dispatch)(window);
-sideEffects.listenForArrowKeys(dispatch)(model.player);
+sideEffects.listenForArrowKeys(ws, model.player);

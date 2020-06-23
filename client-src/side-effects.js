@@ -6,32 +6,22 @@ const getGame = dispatch => () => {
         .then(data => dispatch({ type: 'GET_GAME', worldMap: data.world_map }));
 };
 
-const move = dispatch => (player, direction) => {
-    const putParams = {
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        method: 'PUT',
-        body: JSON.stringify({ player, direction })
-    };
-    fetch('http://localhost:3000/game', putParams)
-        .then(getGame(dispatch)());
-};
+const move = (ws, player, direction) => ws.send(JSON.stringify({ player, direction }));
 
-const listenForArrowKeys = dispatch => color => {
+const listenForArrowKeys = (ws, color) => {
     window.addEventListener('keydown', (e) => {
         switch (e.keyCode) {
             case 37:
-                move(dispatch)(color, 'Left');
+                move(ws, color, 'Left');
                 break;
             case 38:
-                move(dispatch)(color, 'Up');
+                move(ws, color, 'Up');
                 break;
             case 39:
-                move(dispatch)(color, 'Right');
+                move(ws, color, 'Right');
                 break;
             case 40:
-                move(dispatch)(color, 'Down');
+                move(ws, color, 'Down');
                 break;
         }
     });
@@ -49,4 +39,4 @@ export const initDispatch = (model, update, view, render) => (action) => {
     render(view(model, sideEffects), document.querySelector('#app'));
 };
 
-export const sideEffects = { getGame, move, listenForArrowKeys, selectPlayerFromQuerystring };
+export const sideEffects = { getGame, listenForArrowKeys, selectPlayerFromQuerystring };
