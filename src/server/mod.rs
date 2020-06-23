@@ -14,15 +14,7 @@ struct PutGameRequest {
     direction: MoveDirection,
 }
 
-async fn player_move(msg: Message, g: &mut Game, tx: &mpsc::UnboundedSender<Result<Message, warp::Error>>) {
-    let move_request: PutGameRequest = if let Ok(s) = msg.to_str() {
-        serde_json::from_str(s).unwrap()
-    } else {
-        return;
-    };
-
-    g.player_move(move_request.player, move_request.direction);
-
+fn stream_game(g: &Game, tx: &mpsc::UnboundedSender<Result<Message, warp::Error>>) {
     let stringified_game_state = serde_json::to_string(g).unwrap_or("[]".to_string());
 
     if let Err(_disconnected) = tx.send(Ok(Message::text(stringified_game_state))) {
@@ -31,11 +23,20 @@ async fn player_move(msg: Message, g: &mut Game, tx: &mpsc::UnboundedSender<Resu
     }
 }
 
+async fn player_move(msg: Message, g: &mut Game, tx: &mpsc::UnboundedSender<Result<Message, warp::Error>>) {
+    let move_request: PutGameRequest = if let Ok(s) = msg.to_str() {
+        serde_json::from_str(s).unwrap()
+    } else {
+        return;
+    };
+
+    g.player_move(move_request.player, move_request.direction);
+    stream_game(g, tx);
+}
+
 async fn player_connected(ws: WebSocket, g: AsyncGame) {
     println!("Hit the web server at least!");
     let (player_ws_tx, mut player_ws_rx) = ws.split();
-
-    let mut game = g.write().await;
 
     // Use an unbounded channel to handle buffering and flushing of
     // messages to the websocket...
@@ -47,13 +48,11 @@ async fn player_connected(ws: WebSocket, g: AsyncGame) {
         }
     }));
 
-    // Send an initial game state over the socket
-    // let stringified_game_state = serde_json::to_string(& game).unwrap_or("[]".to_string());
-
-    // if let Err(_disconnected) = tx.send(Ok(Message::text(stringified_game_state))) {
-    //     // The tx is disconnected, our `player_disconnected` code should
-    //     // be happening in another task, nothing more to do here
-    // }
+    // Don't want this read to block the below listening, so make sure it's immediately dropped
+    {
+        let game = g.read().await;
+        stream_game(&game, &tx);
+    }
 
     while let Some(result) = player_ws_rx.next().await {
         let msg = match result {
@@ -64,6 +63,7 @@ async fn player_connected(ws: WebSocket, g: AsyncGame) {
             }
         };
 
+        let mut game = g.write().await;
         player_move(msg, &mut game, &tx).await;
     }
 }
