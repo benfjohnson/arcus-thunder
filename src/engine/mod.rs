@@ -75,23 +75,12 @@ impl Game {
         const LOWER_WORLD_BOUND: usize = 0;
         const UPPER_WORLD_BOUND: usize = 7;
 
-        if let MoveDirection::Down = d {
-            if y == UPPER_WORLD_BOUND { return false };
+        match d {
+            MoveDirection::Down => y != UPPER_WORLD_BOUND,
+            MoveDirection::Up => y != LOWER_WORLD_BOUND,
+            MoveDirection::Left => x != LOWER_WORLD_BOUND,
+            MoveDirection::Right => x != UPPER_WORLD_BOUND,
         }
-
-        if let MoveDirection::Up = d {
-            if y == LOWER_WORLD_BOUND { return false };
-        }
-
-        if let MoveDirection::Left = d {
-            if x == LOWER_WORLD_BOUND { return false };
-        }
-
-        if let MoveDirection::Right = d {
-            if x == UPPER_WORLD_BOUND { return false };
-        }
-
-        true
     }
 
     pub fn player_move(&mut self, p: Player, direction: MoveDirection) {
