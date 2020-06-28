@@ -39,4 +39,10 @@ export const initDispatch = (model, update, view, render) => (action) => {
     render(view(model, sideEffects), document.querySelector('#app'));
 };
 
-export const sideEffects = { getGame, listenForArrowKeys, selectPlayerFromQuerystring };
+export const authenticate = dispatch => {
+    fetch('http://localhost:3000/auth', { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => console.log('ben', data));
+}
+
+export const sideEffects = { authenticate, getGame, listenForArrowKeys, selectPlayerFromQuerystring };

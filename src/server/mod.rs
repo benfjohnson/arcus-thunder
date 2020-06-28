@@ -1,5 +1,6 @@
 use warp::Filter;
 use warp::ws::{Message, WebSocket};
+use warp::http::{StatusCode, Response, header};
 use super::engine::{Player, MoveDirection, Game};
 use tokio::sync::{RwLock, mpsc};
 use std::sync::Arc;
@@ -7,6 +8,7 @@ use serde::{Serialize, Deserialize};
 use futures::{FutureExt, StreamExt};
 use std::collections::HashMap;
 use uuid::Uuid;
+use rand::Rng;
 
 type AsyncGame = Arc<RwLock<Game>>;
 type Players = Arc<RwLock<HashMap<Uuid, mpsc::UnboundedSender<Result<Message, warp::Error>>>>>;
@@ -104,12 +106,33 @@ fn game_server(g: AsyncGame, ps: Players) -> impl Filter<Extract = impl warp::Re
         })
 }
 
+fn authenticate() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path("auth")
+        .and(warp::cookie::optional("atid"))
+        .map(| cookie: Option<String> | {
+            match cookie {
+                Some(_) => Response::builder().status(StatusCode::OK).body("{}"),
+                None => {
+                    let random_color = rand::thread_rng().gen_range(0x000000, 0xFFFFFF);
+                    let new_cookie = format!("atid={}; Path=/;", random_color);
+                    Response::builder()
+                        .status(StatusCode::CREATED)
+                        .header(
+                            header::SET_COOKIE,
+                            new_cookie,
+                        )
+                        .body("{}")
+                },
+            }
+        })
+}
+
 #[tokio::main]
 pub async fn serve() {
     let game = Arc::new(RwLock::new(Game::new()));
     let players = Players::default();
 
-    warp::serve(game_server(game.clone(), players.clone()).with(warp::cors().allow_origin("http://localhost:8080").allow_header("Content-Type").allow_methods(vec!["GET", "PUT", "OPTIONS"])))
+    warp::serve(game_server(game.clone(), players.clone()).or(authenticate()).with(warp::cors().allow_origin("http://localhost:8080").allow_header("Content-Type").allow_methods(vec!["GET", "PUT", "OPTIONS"])))
         .run(([127, 0, 0, 1], 3000))
         .await;
 }

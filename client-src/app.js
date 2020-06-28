@@ -41,5 +41,6 @@ ws.onopen = () => console.log('opened a socket!');
 ws.onmessage = (msg) => dispatch({ type: 'GET_GAME', worldMap: JSON.parse(msg.data).world_map });
 
 // side effects to trigger on startup
+sideEffects.authenticate(dispatch);
 sideEffects.selectPlayerFromQuerystring(dispatch)(window);
 sideEffects.listenForArrowKeys(ws, model.player);
