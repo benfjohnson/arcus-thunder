@@ -24,7 +24,7 @@ const view = (model, sideEffects) => html`
     <div>
         ${model.worldMap.map(row => {
             return html`
-                ${row.map(pos => html`<span>${pos || '====='}</span>`)}
+                ${row.map(pos => html`<span style=${pos && (`color:#${Number(pos.color).toString(16)}`)}>${(pos && `#${Number(pos.color).toString(16)}`) || '====='}</span>`)}
                 <br/>
             `;
         })}
@@ -38,9 +38,10 @@ render(view(model, sideEffects), document.querySelector('#app'));
 const ws = new WebSocket('ws://localhost:3000/connect');
 
 ws.onopen = () => console.log('opened a socket!');
-ws.onmessage = (msg) => dispatch({ type: 'GET_GAME', worldMap: JSON.parse(msg.data).world_map });
+ws.onmessage = (msg) => console.log('ben2', msg.data) || dispatch({ type: 'GET_GAME', worldMap: JSON.parse(msg.data).world_map });
 
 // side effects to trigger on startup
-sideEffects.authenticate(dispatch);
-sideEffects.selectPlayerFromQuerystring(dispatch)(window);
-sideEffects.listenForArrowKeys(ws, model.player);
+sideEffects.authenticate(dispatch)
+    .then(() => {
+        sideEffects.listenForArrowKeys(ws);
+    });

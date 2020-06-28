@@ -1,25 +1,24 @@
 use warp::Filter;
 use warp::ws::{Message, WebSocket};
 use warp::http::{StatusCode, Response, header};
-use super::engine::{Player, MoveDirection, Game};
+use super::engine::{MoveDirection, Game};
 use tokio::sync::{RwLock, mpsc};
 use std::sync::Arc;
 use serde::{Serialize, Deserialize};
 use futures::{FutureExt, StreamExt};
 use std::collections::HashMap;
 use uuid::Uuid;
-use rand::Rng;
 
 type AsyncGame = Arc<RwLock<Game>>;
-type Players = Arc<RwLock<HashMap<Uuid, mpsc::UnboundedSender<Result<Message, warp::Error>>>>>;
+type PlayerConnections = Arc<RwLock<HashMap<Uuid, mpsc::UnboundedSender<Result<Message, warp::Error>>>>>;
 
 #[derive(Deserialize, Serialize)]
 struct PutGameRequest {
-    player: Player,
+    player_id: Uuid,
     direction: MoveDirection,
 }
 
-async fn stream_game(id: &Uuid, g: &Game, ps: &Players) {
+async fn stream_game(id: &Uuid, g: &Game, ps: &PlayerConnections) {
     let stringified_game_state = serde_json::to_string(g).unwrap_or("[]".to_string());
 
     let players = ps.read().await;
@@ -35,14 +34,14 @@ async fn stream_game(id: &Uuid, g: &Game, ps: &Players) {
     }
 }
 
-async fn player_move(msg: Message, g: &mut Game, players: &Players) {
+async fn player_move(msg: Message, g: &mut Game, players: &PlayerConnections) {
     let move_request: PutGameRequest = if let Ok(s) = msg.to_str() {
         serde_json::from_str(s).unwrap()
     } else {
         return;
     };
 
-    g.player_move(move_request.player, move_request.direction);
+    g.player_move(move_request.player_id, move_request.direction);
 
     // For each active player, send a transmission with latest game state
     for (id, _) in players.read().await.iter() {
@@ -51,7 +50,7 @@ async fn player_move(msg: Message, g: &mut Game, players: &Players) {
 }
 
 // TODO: Drop players from players map on disconnect!
-async fn player_connected(ws: WebSocket, g: AsyncGame, ps: Players) {
+async fn player_connected(ws: WebSocket, g: AsyncGame, at_id: String, ps: PlayerConnections) {
     let (player_ws_tx, mut player_ws_rx) = ws.split();
 
     // Use an unbounded channel to handle buffering and flushing of
@@ -64,13 +63,18 @@ async fn player_connected(ws: WebSocket, g: AsyncGame, ps: Players) {
         }
     }));
 
-    let id = Uuid::new_v4();
-    ps.write().await.insert(id, tx);
 
-    // Don't want this read to block the below listening, so make sure it's immediately dropped
+    // Don't want this write to block the below listening, so make sure it's immediately dropped
     {
-        let game = g.read().await;
-        stream_game(&id, &game, &ps).await;
+        let new_id = Uuid::parse_str(&at_id);
+
+        if let Err(_) = new_id { return; }
+
+        let mut game = g.write().await;
+        let new_player_id = game.add_player(new_id.unwrap());
+        ps.write().await.insert(new_player_id, tx);
+
+        stream_game(&new_player_id, &game, &ps).await;
     }
 
     while let Some(result) = player_ws_rx.next().await {
@@ -92,17 +96,18 @@ fn with_game(g: AsyncGame) -> impl Filter<Extract = (AsyncGame,), Error = std::c
     warp::any().map(move || g.clone())
 }
 
-fn with_players(ps: Players) -> impl Filter<Extract = (Players,), Error = std::convert::Infallible> + Clone {
+fn with_players(ps: PlayerConnections) -> impl Filter<Extract = (PlayerConnections,), Error = std::convert::Infallible> + Clone {
     warp::any().map(move || ps.clone())
 }
 
-fn game_server(g: AsyncGame, ps: Players) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+fn game_server(g: AsyncGame, ps: PlayerConnections) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     warp::path("connect")
         .and(warp::ws())
         .and(with_game(g))
+        .and(warp::cookie("atid"))
         .and(with_players(ps))
-        .map(| ws: warp::ws::Ws, g, ps| {
-            ws.on_upgrade(move |socket| player_connected(socket, g, ps))
+        .map(| ws: warp::ws::Ws, g, at_id, ps| {
+            ws.on_upgrade(move |socket| player_connected(socket, g, at_id, ps))
         })
 }
 
@@ -113,8 +118,9 @@ fn authenticate() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejec
             match cookie {
                 Some(_) => Response::builder().status(StatusCode::OK).body("{}"),
                 None => {
-                    let random_color = rand::thread_rng().gen_range(0x000000, 0xFFFFFF);
-                    let new_cookie = format!("atid={}; Path=/;", random_color);
+                    let new_id = Uuid::new_v4();
+                    let new_cookie = format!("atid={}; Path=/;", new_id);
+
                     Response::builder()
                         .status(StatusCode::CREATED)
                         .header(
@@ -125,14 +131,14 @@ fn authenticate() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejec
                 },
             }
         })
-}
+    }
 
 #[tokio::main]
 pub async fn serve() {
     let game = Arc::new(RwLock::new(Game::new()));
-    let players = Players::default();
+    let players = PlayerConnections::default();
 
-    warp::serve(game_server(game.clone(), players.clone()).or(authenticate()).with(warp::cors().allow_origin("http://localhost:8080").allow_header("Content-Type").allow_methods(vec!["GET", "PUT", "OPTIONS"])))
+    warp::serve(game_server(game.clone(), players.clone()).or(authenticate()).with(warp::cors().allow_credentials(true).allow_origin("http://localhost:8080").allow_header("Content-Type").allow_methods(vec!["GET", "PUT", "OPTIONS"])))
         .run(([127, 0, 0, 1], 3000))
         .await;
 }

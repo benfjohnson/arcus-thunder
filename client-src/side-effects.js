@@ -1,37 +1,29 @@
 // Side effects
 
-const getGame = dispatch => () => {
-    fetch('http://localhost:3000/game')
-        .then(res => res.json())
-        .then(data => dispatch({ type: 'GET_GAME', worldMap: data.world_map }));
-};
+const move = (ws, player_id, direction) => ws.send(JSON.stringify({ player_id, direction }));
 
-const move = (ws, player, direction) => ws.send(JSON.stringify({ player, direction }));
+const listenForArrowKeys = (ws) => {
+    const id = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('atid'))
+        .split('=')[1];
 
-const listenForArrowKeys = (ws, color) => {
     window.addEventListener('keydown', (e) => {
         switch (e.keyCode) {
             case 37:
-                move(ws, color, 'Left');
+                move(ws, id, 'Left');
                 break;
             case 38:
-                move(ws, color, 'Up');
+                move(ws, id, 'Up');
                 break;
             case 39:
-                move(ws, color, 'Right');
+                move(ws, id, 'Right');
                 break;
             case 40:
-                move(ws, color, 'Down');
+                move(ws, id, 'Down');
                 break;
         }
     });
-};
-
-const selectPlayerFromQuerystring = dispatch => window => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const maybePlayerColor = searchParams.get('player');
-    // For now just safeguard against undefined behavior by returning black as the default color:
-    dispatch({ type: 'GET_PLAYER_COLOR', color: maybePlayerColor || 'White' });
 };
 
 export const initDispatch = (model, update, view, render) => (action) => {
@@ -39,10 +31,10 @@ export const initDispatch = (model, update, view, render) => (action) => {
     render(view(model, sideEffects), document.querySelector('#app'));
 };
 
-export const authenticate = dispatch => {
+export const authenticate = dispatch => (
     fetch('http://localhost:3000/auth', { credentials: 'include' })
         .then(res => res.json())
-        .then(data => console.log('ben', data));
-}
+        .then(data => console.log('ben', data))
+);
 
-export const sideEffects = { authenticate, getGame, listenForArrowKeys, selectPlayerFromQuerystring };
+export const sideEffects = { authenticate, listenForArrowKeys };
