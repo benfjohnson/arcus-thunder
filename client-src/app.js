@@ -35,13 +35,9 @@ const dispatch = initDispatch(model, update, view, render);
 
 render(view(model, sideEffects), document.querySelector('#app'));
 
-const ws = new WebSocket('ws://localhost:3000/connect');
-
-ws.onopen = () => console.log('opened a socket!');
-ws.onmessage = (msg) => console.log('ben2', msg.data) || dispatch({ type: 'GET_GAME', worldMap: JSON.parse(msg.data).world_map });
-
 // side effects to trigger on startup
 sideEffects.authenticate(dispatch)
     .then(() => {
-        sideEffects.listenForArrowKeys(ws);
+        sideEffects.initiateWebsocket(dispatch);
+        sideEffects.listenForArrowKeys(sideEffects.ws());
     });

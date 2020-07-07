@@ -1,5 +1,8 @@
 // Side effects
 
+// the websocket connection, which needs to be passed to certain side effects
+let ws;
+
 const move = (ws, player_id, direction) => ws.send(JSON.stringify({ player_id, direction }));
 
 const listenForArrowKeys = (ws) => {
@@ -26,6 +29,12 @@ const listenForArrowKeys = (ws) => {
     });
 };
 
+export const initiateWebsocket = dispatch => {
+    ws = new WebSocket('ws://localhost:3000/connect');
+    ws.onopen = () => console.log('opened a socket!');
+    ws.onmessage = msg => dispatch({ type: 'GET_GAME', worldMap: JSON.parse(msg.data).world_map });
+}
+
 export const initDispatch = (model, update, view, render) => (action) => {
     model = update(model, action);
     render(view(model, sideEffects), document.querySelector('#app'));
@@ -33,8 +42,6 @@ export const initDispatch = (model, update, view, render) => (action) => {
 
 export const authenticate = dispatch => (
     fetch('http://localhost:3000/auth', { credentials: 'include' })
-        .then(res => res.json())
-        .then(data => console.log('ben', data))
 );
 
-export const sideEffects = { authenticate, listenForArrowKeys };
+export const sideEffects = { ws: () => ws, authenticate, initiateWebsocket, listenForArrowKeys };
