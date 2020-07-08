@@ -1,5 +1,7 @@
 // Side effects
 
+import { paintCurrPositions } from './canvas.js';
+
 // the websocket connection, which needs to be passed to certain side effects
 let ws;
 
@@ -29,18 +31,14 @@ const listenForArrowKeys = (ws) => {
     });
 };
 
-export const initiateWebsocket = dispatch => {
+const initiateWebsocket = ctx => {
     ws = new WebSocket('ws://localhost:3000/connect');
     ws.onopen = () => console.log('opened a socket!');
-    ws.onmessage = msg => dispatch({ type: 'GET_GAME', worldMap: JSON.parse(msg.data).world_map });
+    // TODO: Can view rendering be functional/declarative, a la react?
+    ws.onmessage = msg => paintCurrPositions(ctx, JSON.parse(msg.data).world_map);
 }
 
-export const initDispatch = (model, update, view, render) => (action) => {
-    model = update(model, action);
-    render(view(model, sideEffects), document.querySelector('#app'));
-};
-
-export const authenticate = dispatch => (
+const authenticate = () => (
     fetch('http://localhost:3000/auth', { credentials: 'include' })
 );
 

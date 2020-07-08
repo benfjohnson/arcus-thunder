@@ -1,43 +1,21 @@
 import { html, render } from 'https://unpkg.com/lit-html@1.2.1/lit-html.js';
-import { initDispatch, sideEffects } from './side-effects.js';
+import { sideEffects } from './side-effects.js';
+import { initializeCanvas } from './canvas.js';
 
-const worldMap = [];
-
-const player = 'White';
-
-let model = { worldMap, player };
-
-const update = (model, action) => {
-    switch(action.type) {
-        case 'GET_GAME':
-            model.worldMap = action.worldMap;
-            return model;
-        case 'GET_PLAYER_COLOR':
-            model.player = action.color;
-            return model;
-        default:
-            return model;
-    }
-};
-
-const view = (model, sideEffects) => html`
+const view = () => html`
     <div>
-        ${model.worldMap.map(row => {
-            return html`
-                ${row.map(pos => html`<span style=${pos && (`color:#${Number(pos.color).toString(16)}`)}>${(pos && `#${Number(pos.color).toString(16)}`) || '====='}</span>`)}
-                <br/>
-            `;
-        })}
+        <canvas id='game-map' width='800' height='800'></canvas>
     </div>
 `;
 
-const dispatch = initDispatch(model, update, view, render);
+render(view(), document.querySelector('#app'));
 
-render(view(model, sideEffects), document.querySelector('#app'));
+const ctx = document.querySelector('#game-map').getContext('2d');
+initializeCanvas(ctx);
 
 // side effects to trigger on startup
-sideEffects.authenticate(dispatch)
+sideEffects.authenticate()
     .then(() => {
-        sideEffects.initiateWebsocket(dispatch);
+        sideEffects.initiateWebsocket(ctx);
         sideEffects.listenForArrowKeys(sideEffects.ws());
     });
