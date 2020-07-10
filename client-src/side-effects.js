@@ -36,7 +36,10 @@ const initiateWebsocket = async ctx => {
         ws = new WebSocket('ws://localhost:3000/connect');
         ws.onopen = () => console.log('opened a socket!') || resolve();
         // TODO: Can view rendering be functional/declarative, a la react?
-        ws.onmessage = msg => paintCurrPositions(ctx, JSON.parse(msg.data).world_map);
+        ws.onmessage = msg => {
+            const { world_map: worldMap, state: gameState } = JSON.parse(msg.data);
+            paintCurrPositions(ctx, worldMap, gameState);
+        };
     });
 }
 

@@ -25,17 +25,25 @@ export const initializeCanvas = async ctx => {
     ctx.fillRect(0, 0, WIDTH_PX, HEIGHT_PX);
 };
 
-export const paintCurrPositions = async (ctx, board) => {
+export const paintCurrPositions = async (ctx, board, state) => {
     ctx.clearRect(0, 0, WIDTH_PX, HEIGHT_PX);
+
     await initializeCanvas(ctx);
-        board.forEach((row, y) => {
-            row.forEach((pos, x) => {
-                if (!pos) return;
-                ctx.fillStyle = `#${Number(pos.color).toString(16)}`;
-                ctx.beginPath();
-                ctx.arc(x * SPACE_PX + (SPACE_PX / 2), y * SPACE_PX + (SPACE_PX / 2), SPACE_PX / 2, 0, 2 * Math.PI);
-                ctx.stroke();
-                ctx.fill();
-            });
+
+    if (state === 'NotStarted') {
+        ctx.font = '50px Georgia';
+        ctx.fillStyle = 'black';
+        ctx.fillText('Waiting for opponents...', 100, 400);
+    }
+
+    board.forEach((row, y) => {
+        row.forEach((pos, x) => {
+            if (!pos) return;
+            ctx.fillStyle = `#${Number(pos.color).toString(16)}`;
+            ctx.beginPath();
+            ctx.arc(x * SPACE_PX + (SPACE_PX / 2), y * SPACE_PX + (SPACE_PX / 2), SPACE_PX / 2, 0, 2 * Math.PI);
+            ctx.stroke();
+            ctx.fill();
         });
+    });
 };
