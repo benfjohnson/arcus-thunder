@@ -8,14 +8,16 @@ const view = () => html`
     </div>
 `;
 
-render(view(), document.querySelector('#app'));
+const main = async () => {
+    render(view(), document.querySelector('#app'));
+    const ctx = document.querySelector('#game-map').getContext('2d');
 
-const ctx = document.querySelector('#game-map').getContext('2d');
-initializeCanvas(ctx);
+    await initializeCanvas(ctx);
 
-// side effects to trigger on startup
-sideEffects.authenticate()
-    .then(() => {
-        sideEffects.initiateWebsocket(ctx);
-        sideEffects.listenForArrowKeys(sideEffects.ws());
-    });
+    // side effects to trigger on startup
+    await sideEffects.authenticate();
+    await sideEffects.initiateWebsocket(ctx);
+    sideEffects.listenForArrowKeys(sideEffects.ws());
+};
+
+main();

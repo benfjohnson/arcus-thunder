@@ -31,15 +31,17 @@ const listenForArrowKeys = (ws) => {
     });
 };
 
-const initiateWebsocket = ctx => {
-    ws = new WebSocket('ws://localhost:3000/connect');
-    ws.onopen = () => console.log('opened a socket!');
-    // TODO: Can view rendering be functional/declarative, a la react?
-    ws.onmessage = msg => paintCurrPositions(ctx, JSON.parse(msg.data).world_map);
+const initiateWebsocket = async ctx => {
+    return new Promise(resolve => {
+        ws = new WebSocket('ws://localhost:3000/connect');
+        ws.onopen = () => console.log('opened a socket!') || resolve();
+        // TODO: Can view rendering be functional/declarative, a la react?
+        ws.onmessage = msg => paintCurrPositions(ctx, JSON.parse(msg.data).world_map);
+    });
 }
 
-const authenticate = () => (
-    fetch('http://localhost:3000/auth', { credentials: 'include' })
+const authenticate = async () => (
+    await fetch('http://localhost:3000/auth', { credentials: 'include' })
 );
 
 export const sideEffects = { ws: () => ws, authenticate, initiateWebsocket, listenForArrowKeys };
