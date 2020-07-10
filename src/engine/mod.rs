@@ -175,7 +175,9 @@ impl Game {
                 println!("adding a player at ({}, {})!", x, y);
                 self.world_map[y][x] = Some(p);
                 // if we have the minimum number of required players, set game to in progress!
-                if self.player_count() >= MINIMUM_PLAYER_COUNT && self.state == GameState::NotStarted {
+                if self.player_count() >= MINIMUM_PLAYER_COUNT
+                    && self.state == GameState::NotStarted
+                {
                     self.state = GameState::InProgress;
                 }
                 break;
@@ -188,12 +190,11 @@ impl Game {
 
     fn player_count(&self) -> usize {
         self.world_map.iter().fold(0, |map_accum, row| {
-            map_accum + row.iter().fold(0, |row_accum, pos| {
-                match pos {
+            map_accum
+                + row.iter().fold(0, |row_accum, pos| match pos {
                     None => row_accum,
                     Some(_) => row_accum + 1,
-                }
-            })
+                })
         })
     }
 }
@@ -208,7 +209,10 @@ mod tests {
         let new_player_id = test_g.add_player(Uuid::new_v4());
 
         // player at 0,0 should be able to move down, but only if game has begun!
-        assert_eq!(test_g.player_move(new_player_id, MoveDirection::Down), false);
+        assert_eq!(
+            test_g.player_move(new_player_id, MoveDirection::Down),
+            false
+        );
         assert_eq!(test_g.state, GameState::NotStarted);
     }
 
