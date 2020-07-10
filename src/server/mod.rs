@@ -1,16 +1,17 @@
-use warp::Filter;
-use warp::ws::{Message, WebSocket};
-use warp::http::{StatusCode, Response, header};
-use super::engine::{MoveDirection, Game};
-use tokio::sync::{RwLock, mpsc};
-use std::sync::Arc;
-use serde::{Serialize, Deserialize};
+use super::engine::{Game, MoveDirection};
 use futures::{FutureExt, StreamExt};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;
+use warp::http::{header, Response, StatusCode};
+use warp::ws::{Message, WebSocket};
+use warp::Filter;
 
 type AsyncGame = Arc<RwLock<Game>>;
-type PlayerConnections = Arc<RwLock<HashMap<Uuid, mpsc::UnboundedSender<Result<Message, warp::Error>>>>>;
+type PlayerConnections =
+    Arc<RwLock<HashMap<Uuid, mpsc::UnboundedSender<Result<Message, warp::Error>>>>>;
 
 #[derive(Deserialize, Serialize)]
 struct PutGameRequest {
@@ -63,12 +64,13 @@ async fn player_connected(ws: WebSocket, g: AsyncGame, at_id: String, ps: Player
         }
     }));
 
-
     // Don't want this write to block the below listening, so make sure it's immediately dropped
     {
         let new_id = Uuid::parse_str(&at_id);
 
-        if let Err(_) = new_id { return; }
+        if let Err(_) = new_id {
+            return;
+        }
 
         let mut game = g.write().await;
         let new_player_id = game.add_player(new_id.unwrap());
@@ -91,54 +93,65 @@ async fn player_connected(ws: WebSocket, g: AsyncGame, at_id: String, ps: Player
     }
 }
 
-
-fn with_game(g: AsyncGame) -> impl Filter<Extract = (AsyncGame,), Error = std::convert::Infallible> + Clone {
+fn with_game(
+    g: AsyncGame,
+) -> impl Filter<Extract = (AsyncGame,), Error = std::convert::Infallible> + Clone {
     warp::any().map(move || g.clone())
 }
 
-fn with_players(ps: PlayerConnections) -> impl Filter<Extract = (PlayerConnections,), Error = std::convert::Infallible> + Clone {
+fn with_players(
+    ps: PlayerConnections,
+) -> impl Filter<Extract = (PlayerConnections,), Error = std::convert::Infallible> + Clone {
     warp::any().map(move || ps.clone())
 }
 
-fn game_server(g: AsyncGame, ps: PlayerConnections) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+fn game_server(
+    g: AsyncGame,
+    ps: PlayerConnections,
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     warp::path("connect")
         .and(warp::ws())
         .and(with_game(g))
         .and(warp::cookie("atid"))
         .and(with_players(ps))
-        .map(| ws: warp::ws::Ws, g, at_id, ps| {
+        .map(|ws: warp::ws::Ws, g, at_id, ps| {
             ws.on_upgrade(move |socket| player_connected(socket, g, at_id, ps))
         })
 }
 
 fn authenticate() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    warp::path("auth")
-        .and(warp::cookie::optional("atid"))
-        .map(| cookie: Option<String> | {
-            match cookie {
-                Some(_) => Response::builder().status(StatusCode::OK).body("{}"),
-                None => {
-                    let new_id = Uuid::new_v4();
-                    let new_cookie = format!("atid={}; Path=/;", new_id);
+    warp::path("auth").and(warp::cookie::optional("atid")).map(
+        |cookie: Option<String>| match cookie {
+            Some(_) => Response::builder().status(StatusCode::OK).body("{}"),
+            None => {
+                let new_id = Uuid::new_v4();
+                let new_cookie = format!("atid={}; Path=/;", new_id);
 
-                    Response::builder()
-                        .status(StatusCode::CREATED)
-                        .header(
-                            header::SET_COOKIE,
-                            new_cookie,
-                        )
-                        .body("{}")
-                },
+                Response::builder()
+                    .status(StatusCode::CREATED)
+                    .header(header::SET_COOKIE, new_cookie)
+                    .body("{}")
             }
-        })
-    }
+        },
+    )
+}
 
 #[tokio::main]
 pub async fn serve() {
     let game = Arc::new(RwLock::new(Game::new()));
     let players = PlayerConnections::default();
 
-    warp::serve(game_server(game.clone(), players.clone()).or(authenticate()).with(warp::cors().allow_credentials(true).allow_origin("http://localhost:8080").allow_header("Content-Type").allow_methods(vec!["GET", "PUT", "OPTIONS"])))
-        .run(([127, 0, 0, 1], 3000))
-        .await;
+    warp::serve(
+        game_server(game.clone(), players.clone())
+            .or(authenticate())
+            .with(
+                warp::cors()
+                    .allow_credentials(true)
+                    .allow_origin("http://localhost:8080")
+                    .allow_header("Content-Type")
+                    .allow_methods(vec!["GET", "PUT", "OPTIONS"]),
+            ),
+    )
+    .run(([127, 0, 0, 1], 3000))
+    .await;
 }
