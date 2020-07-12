@@ -19,19 +19,17 @@ struct PutGameRequest {
     direction: MoveDirection,
 }
 
-async fn stream_game(id: &Uuid, g: &Game, ps: &PlayerConnections) {
+// transmit lastest game state to all players
+async fn stream_game(g: &Game, ps: &PlayerConnections) {
     let stringified_game_state = serde_json::to_string(g).unwrap_or("[]".to_string());
 
     let players = ps.read().await;
-    let tx = if let Some(tx) = players.get(id) {
-        tx
-    } else {
-        return;
-    };
 
-    if let Err(_disconnected) = tx.send(Ok(Message::text(stringified_game_state))) {
-        // The tx is disconnected, our `player_disconnected` code should
-        // be happening in another task, nothing more to do here
+    for (_, tx) in players.iter() {
+        if let Err(_disconnected) = tx.send(Ok(Message::text(stringified_game_state.clone()))) {
+            // the tx is disconnected, our `player_disconnected` code should
+            // be happening in another task, nothing more to do here
+        }
     }
 }
 
@@ -44,17 +42,15 @@ async fn player_move(msg: Message, g: &mut Game, players: &PlayerConnections) {
 
     g.player_move(move_request.player_id, move_request.direction);
 
-    // For each active player, send a transmission with latest game state
-    for (id, _) in players.read().await.iter() {
-        stream_game(&id, g, players).await;
-    }
+    // for each active player, send a transmission with latest game state
+    stream_game(g, players).await;
 }
 
 // TODO: Drop players from players map on disconnect!
 async fn player_connected(ws: WebSocket, g: AsyncGame, at_id: String, ps: PlayerConnections) {
     let (player_ws_tx, mut player_ws_rx) = ws.split();
 
-    // Use an unbounded channel to handle buffering and flushing of
+    // use an unbounded channel to handle buffering and flushing of
     // messages to the websocket...
     // TODO: Figure out what this means...
     let (tx, rx) = mpsc::unbounded_channel();
@@ -64,7 +60,7 @@ async fn player_connected(ws: WebSocket, g: AsyncGame, at_id: String, ps: Player
         }
     }));
 
-    // Don't want this write to block the below listening, so make sure it's immediately dropped
+    // don't want this write to block the below listening, so make sure it's immediately dropped
     {
         let new_id = Uuid::parse_str(&at_id);
 
@@ -76,7 +72,7 @@ async fn player_connected(ws: WebSocket, g: AsyncGame, at_id: String, ps: Player
         let new_player_id = game.add_player(new_id.unwrap());
         ps.write().await.insert(new_player_id, tx);
 
-        stream_game(&new_player_id, &game, &ps).await;
+        stream_game(&game, &ps).await;
     }
 
     while let Some(result) = player_ws_rx.next().await {
