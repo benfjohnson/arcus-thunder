@@ -2,12 +2,13 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-const MINIMUM_PLAYER_COUNT: usize = 3;
+const MINIMUM_PLAYER_COUNT: usize = 2;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Player {
     pub color: String,
     id: Uuid,
+    score: usize,
 }
 
 impl Player {
@@ -15,6 +16,7 @@ impl Player {
         Player {
             id,
             color: rand::thread_rng().gen_range(0x000000, 0xFFFFFF).to_string(),
+            score: 0,
         }
     }
 }
@@ -115,6 +117,24 @@ impl Game {
         }
     }
 
+    // TODO: Implement a queuing system if no available respawn spaces (NOT MVP)
+    fn handle_player_collision(&mut self, player: &Option<Player>, (x, y): (usize, usize)) {
+        let next_space = self.world_map[y][x].clone();
+        let mut updated_player = player.clone().unwrap();
+
+        // Detecting collision...
+        if let Some(other_player) = next_space {
+            updated_player.score += 1;
+
+            // Respawn the killed player at the first available space
+            if let Some((new_x, new_y)) = self.first_empty_pos() {
+                self.world_map[new_y][new_x] = Some(other_player);
+            }
+        }
+
+        self.world_map[y][x] = Some(updated_player);
+    }
+
     pub fn player_move(&mut self, id: Uuid, direction: MoveDirection) -> bool {
         if !self.move_is_valid(id, &direction) {
             return false;
@@ -128,24 +148,38 @@ impl Game {
         if let None = player {
             return false;
         }
+
         self.world_map[y][x] = None;
 
         match direction {
             MoveDirection::Down => {
-                self.world_map[y + 1][x] = player;
+                self.handle_player_collision(&player, (x, y + 1));
             }
             MoveDirection::Up => {
-                self.world_map[y - 1][x] = player;
+                self.handle_player_collision(&player, (x, y - 1));
             }
             MoveDirection::Left => {
-                self.world_map[y][x - 1] = player;
+                self.handle_player_collision(&player, (x - 1, y));
             }
             MoveDirection::Right => {
-                self.world_map[y][x + 1] = player;
+                self.handle_player_collision(&player, (x + 1, y));
             }
         };
 
         true
+    }
+
+    fn first_empty_pos(&self) -> Option<(usize, usize)> {
+        for (y, row) in self.world_map.iter().enumerate() {
+            if let Some(x) = row.iter().position(|curr_x| match curr_x {
+                None => true,
+                Some(_) => false,
+            }) {
+                return Some((x, y));
+            }
+        }
+
+        None
     }
 
     pub fn add_player(&mut self, id: Uuid) -> Uuid {
@@ -164,23 +198,12 @@ impl Game {
             return id;
         }
 
-        // insert new player with passed in id into the first open spot
-        for (y, row) in self.world_map.iter().enumerate() {
-            let empty_space_idx = row.iter().position(|pos| match pos {
-                None => true,
-                Some(_) => false,
-            });
-
-            if let Some(x) = empty_space_idx {
-                println!("adding a player at ({}, {})!", x, y);
-                self.world_map[y][x] = Some(p);
-                // if we have the minimum number of required players, set game to in progress!
-                if self.player_count() >= MINIMUM_PLAYER_COUNT
-                    && self.state == GameState::NotStarted
-                {
-                    self.state = GameState::InProgress;
-                }
-                break;
+        if let Some((x, y)) = self.first_empty_pos() {
+            println!("adding a player at ({}, {})!", x, y);
+            self.world_map[y][x] = Some(p);
+            // if we have the minimum number of required players, set game to in progress!
+            if self.player_count() >= MINIMUM_PLAYER_COUNT && self.state == GameState::NotStarted {
+                self.state = GameState::InProgress;
             }
         }
 
@@ -288,5 +311,66 @@ mod tests {
         println!("here it is: {:?}", test_g.world_map);
 
         assert_eq!(test_g.player_count(), 14);
+    }
+
+    #[test]
+    /* Test that the following criteria are true:
+     * 1) P1 and P2 start at the expected space (first open spot) with scores of 0
+     * 2) When P1 "eats" P2, P1's score is increased by 1, and
+     * 3) P2 then respawns at the first available space
+     */
+    fn test_player_score() {
+        let mut test_g = Game::new();
+        // (0, 0)
+        let p1_id = test_g.add_player(Uuid::new_v4());
+        // (1, 0)
+        let p2_id = test_g.add_player(Uuid::new_v4());
+
+        println!("Current state: {:?}", test_g.world_map);
+
+        // test that p1 starts with a score of 0
+        let PlayerLocData {
+            player: p1,
+            coords: _,
+        } = test_g.find_player(p1_id);
+        match p1 {
+            None => panic!("Player not found as expected"),
+            Some(p) => assert_eq!(p.score, 0),
+        };
+
+        // test that p2 starts with a score of 0, at (1, 0)
+        let PlayerLocData {
+            player: p2,
+            coords: p2_coords,
+        } = test_g.find_player(p2_id);
+        match p2 {
+            None => panic!("Player not found as expected"),
+            Some(p) => assert_eq!(p.score, 0),
+        };
+        assert_eq!(p2_coords, (1, 0));
+
+        test_g.player_move(p1_id, MoveDirection::Right);
+
+        // test that p1 is now at (1, 0), and has scored
+        let PlayerLocData {
+            player: p1,
+            coords: p1_coords,
+        } = test_g.find_player(p1_id);
+        match p1 {
+            None => panic!("Player not found as expected"),
+            Some(p) => assert_eq!(p.score, 1),
+        };
+        assert_eq!(p1_coords, (1, 0));
+
+        // test that p2 is now at (0, 0) (respawned), and has not scored
+        let PlayerLocData {
+            player: p2,
+            coords: p2_coords,
+        } = test_g.find_player(p2_id);
+        match p2 {
+            None => panic!("Player not found as expected"),
+            Some(p) => assert_eq!(p.score, 0),
+        };
+        assert_eq!(p2_coords, (0, 0));
     }
 }
