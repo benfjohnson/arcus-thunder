@@ -2,7 +2,7 @@
 # It is not intended for manual editing.
 [[package]]
 name = "arcus-thunder"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "futures",
  "rand 0.6.5",
