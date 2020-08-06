@@ -31,13 +31,14 @@ const listenForArrowKeys = (ws) => {
     });
 };
 
-const initiateWebsocket = async ctx => {
+const initiateWebsocket = async (ctx, render) => {
     return new Promise(resolve => {
         ws = new WebSocket('ws://localhost:3000/connect');
         ws.onopen = () => console.log('opened a socket!') || resolve();
         // TODO: Can view rendering be functional/declarative, a la react?
         ws.onmessage = msg => {
             const { world_map: worldMap, state: gameState } = JSON.parse(msg.data);
+            render({ worldMap, gameState });
             paintCurrPositions(ctx, worldMap, gameState);
         };
     });
