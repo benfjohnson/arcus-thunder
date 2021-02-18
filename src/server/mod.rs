@@ -132,6 +132,14 @@ fn authenticate() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejec
     )
 }
 
+fn client() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path::end().and(warp::get()).and(warp::fs::file("index.html"))
+}
+
+fn assets() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path("static").and(warp::fs::dir("client-src"))
+}
+
 #[tokio::main]
 pub async fn serve() {
     let game = Arc::new(RwLock::new(Game::new()));
@@ -140,13 +148,8 @@ pub async fn serve() {
     warp::serve(
         game_server(game.clone(), players.clone())
             .or(authenticate())
-            .with(
-                warp::cors()
-                    .allow_credentials(true)
-                    .allow_origin("http://localhost:8080")
-                    .allow_header("Content-Type")
-                    .allow_methods(vec!["GET", "PUT", "OPTIONS"]),
-            ),
+            .or(client())
+            .or(assets())
     )
     .run(([127, 0, 0, 1], 3000))
     .await;

@@ -10,7 +10,7 @@ const getImg = async () => {
 
     return new Promise(res => {
         const gt = new Image();
-        gt.src = './assets/grass-tile.png';
+        gt.src = './static/assets/grass-tile.png';
         gt.onload = () => {
             grassTileCache = gt;
             res(gt);
