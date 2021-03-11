@@ -211,6 +211,21 @@ impl Game {
         id
     }
 
+    pub fn remove_player(&mut self, id: Uuid) -> bool {
+        let PlayerLocData {
+            coords: (x, y),
+            player,
+        } = self.find_player(id);
+
+        match player {
+            None => false,
+            Some(_) => {
+                self.world_map[y][x] = None;
+                true
+            }
+        }
+    }
+
     fn player_count(&self) -> usize {
         self.world_map.iter().fold(0, |map_accum, row| {
             map_accum
