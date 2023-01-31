@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 tokio = { version = "0.2", features = ["macros"] }
-warp = "0.2"
+warp = "0.3"
 serde = { version = "1.0.111", features = ["derive"] }
 serde_json = "1.0.53"
 futures = { version = "0.3", default-features = false }
